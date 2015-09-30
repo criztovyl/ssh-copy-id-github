@@ -42,11 +42,12 @@ ssh_copy_id_github() {
     [ -z $username ] && read -p "Your Github username: " username || username=$username; echo "Username: $username"
 
     # Account token from file or authorize via API
-    [ -f $GITHUB_TOKEN_FILE ] && token=`cat $GITHUB_TOKEN_FILE` || \ 
-    { 
+    if [ -f $GITHUB_TOKEN_FILE ]; then
+        token=`cat $GITHUB_TOKEN_FILE`
+    else
         echo "Authorizing GitHub..."
         token=`curl -s https://api.github.com/authorizations --user $username --data "{\"scopes\":[\"write:public_key\"],\"note\":\"ssh-copy-id-github, user: $USER host: $HOST time: $time\"}" | grep "token" | cut -d ':' -f2 | tr -d "\"" | tr -d ", " | tr -d " "`
-    }
+    fi
 
     # The key
     key=`cat ~/.ssh/id_rsa.pub`
