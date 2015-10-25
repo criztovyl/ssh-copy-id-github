@@ -39,12 +39,14 @@ ssh_copy_id_github() {
     # Username
     username=$1
     time=`date`
-    [ -z $username ] && read -p "Your Github username: " username || username=$username; echo "Username: $username"
 
     # Account token from file or authorize via API
     if [ -f $GITHUB_TOKEN_FILE ]; then
         token=`cat $GITHUB_TOKEN_FILE`
     else
+        # Determine the users GitHub username
+        [ -z $username ] && read -p "Your Github username: " username || username=$username; echo "Username: $username"
+
         echo "Authorizing GitHub..."
         token=`curl -s https://api.github.com/authorizations --user $username --data "{\"scopes\":[\"write:public_key\"],\"note\":\"ssh-copy-id-github, user: $USER host: $HOST time: $time\"}" | grep "token" | cut -d ':' -f2 | tr -d "\"" | tr -d ", " | tr -d " "`
     fi
