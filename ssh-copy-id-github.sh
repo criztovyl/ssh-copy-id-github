@@ -21,44 +21,60 @@
 # Help
 [ "$1" == "--help" ] || [ "$1" == "-h" ] || [ "$1" == "help" ] && 
 {
-    echo "Usage: ./ssh-copy-id-github"
+    echo "Usage: ./ssh-copy-id-github [username]"
     echo "Adds .ssh/id_rsa.pub to your Github's SSH keys."
     exit
 }
-
 ###
-# Toke file
-GITHUB_TOKEN_FILE=~/.ssh_copy_id_github_token
-
+# Constants
+TRUE=0
+FALSE=1
+XGH="X-GitHub-OTP: required; " # Git Hub OTP Header
 ###
 # Function
 # Args: username
 #   username: Github username
+#   ssh_key : SSH key file, default: $HOME/.ssh/id_rsa.pub
 ssh_copy_id_github() {
 
-    # Username
     username=$1
-    time=`date`
+    key=$2
+    [ -z $key ] && key=`cat ~/.ssh/id_rsa.pub`
+    [ -z $username ] && read -p "GitHub username: " username || username=$username; echo "Username: $username"
 
-    # Account token from file or authorize via API
-    if [ -f $GITHUB_TOKEN_FILE ]; then
-        token=`cat $GITHUB_TOKEN_FILE`
-    else
-        # Determine the users GitHub username
-        [ -z $username ] && read -p "Your Github username: " username || username=$username; echo "Username: $username"
+    read -sp "GitHub password: " password && echo
 
-        echo "Authorizing GitHub..."
-        token=`curl -s https://api.github.com/authorizations --user $username --data "{\"scopes\":[\"write:public_key\"],\"note\":\"ssh-copy-id-github, user: $USER host: $HOST time: $time\"}" | grep "token" | cut -d ':' -f2 | tr -d "\"" | tr -d ", " | tr -d " "`
+    response=`\
+        curl -is https://api.github.com/user/keys -X POST -u "$username:$password" -H "application/json" \
+        -d "{\"title\": \"$USER@$HOSTNAME\", \"key\": \"$key\"}" \
+        |  grep 'Status: [45][0-9]\{2\}\|X-GitHub-OTP: required; .\+\|message' | tr -d "\r"`
+
+    otp_required "$response" otp
+    otp_type "$response" "type" # app or sms
+
+    [ `echo "$response" | grep 'Status: 401\|Bad credentials' | wc -l` -eq 2 ] && { echo "Wrong password."; exit 5; }
+
+    if [ "$otp" == "$TRUE"  ]; then
+        read -sp "Enter your OTP code (check your $type): " code && echo
+
+        response=`curl -si https://api.github.com/user/keys -X POST -u "$username:$password" -H "X-GitHub-OTP: $code" -H "application/json" -d "{\"title\": \"$USER@$HOSTNAME\", \"key\": \"$key\"}" | grep 'Status: [45][0-9]\{2\}\|X-GitHub-OTP: required; .\+\|message\|key' | tr -d "\r"`
+
+        otp_required "$response" otp
+        [ "$otp"  ==  "$TRUE" ] && { echo "Wrong OTP."; exit 10; }
+        [ `echo "$response" | grep "key" | wc -l` -gt 0 ] && echo "Success."
     fi
-
-    # The key
-    key=`cat ~/.ssh/id_rsa.pub`
-
-    # Result (Debug)
-    result=$(curl -s https://api.github.com/user/keys -X POST -H "Authorization: token $token" -H "application/json" -d "{\"title\": \"$USER@$HOSTNAME\", \"key\": \"$key\"}")
-    echo "$result"
-
 }
-
+otp_required(){
+    local filteredResponse=$1
+    local resultVar=$2
+    local _otp=`echo $filteredResponse | grep "$XGH" | wc -l`
+    [ $_otp -eq 1 ] && eval $resultVar=$TRUE || eval $resultVar=$FALSE 
+}
+otp_type(){
+    local filteredResponse=$1
+    local resultVar=$2
+    local _type=`echo $filteredResponse | grep "$XGH" | sed "s/.\+$XGH\(\w\+\).\+/\1/"`
+    eval $resultVar=$_type
+}
 # Execute.
 ssh_copy_id_github $1
