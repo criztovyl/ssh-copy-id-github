@@ -19,7 +19,7 @@
 
 ###
 # Help
-[ "$1" == "--help" ] || [ "$1" == "-h" ] || [ "$1" == "help" ] && 
+[ "$1" == "--help" ] || [ "$1" == "-h" ] || [ "$1" == "help" ] &&
 {
     echo "Usage: ./ssh-copy-id-github [username]"
     echo "Adds .ssh/id_rsa.pub to your Github's SSH keys."
@@ -52,7 +52,7 @@ ssh_copy_id_github() {
 
     if [ ! -e "$key_file" ]; then
 
-      read -p "SSH key file doesn't exist: $key_file, do you want to generate a $key_file (y/n)?: "; echo 
+      read -p "SSH key file doesn't exist: $key_file, do you want to generate a $key_file (y/n)?: "; echo
 
       if [[ "$REPLY" =~ ^[Yy]$ ]]; then
         ssh-keygen -f `echo ${key_file%.pub}`
@@ -99,7 +99,7 @@ otp_required(){
     local filteredResponse=$1
     local resultVar=$2
     local _otp=`echo $filteredResponse | grep "$XGH" | wc -l`
-    [ $_otp -eq 1 ] && eval $resultVar=$TRUE || eval $resultVar=$FALSE 
+    [ $_otp -eq 1 ] && eval $resultVar=$TRUE || eval $resultVar=$FALSE
 }
 otp_type(){
     local filteredResponse=$1
@@ -109,4 +109,3 @@ otp_type(){
 }
 # Execute.
 ssh_copy_id_github "$1" "$2"
-
